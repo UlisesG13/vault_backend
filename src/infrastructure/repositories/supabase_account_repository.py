@@ -41,15 +41,22 @@ def _row_to_entity(row: dict[str, Any]) -> AccountEntity:
         recovery_email=row.get("recovery_email"),
         status=row["status"],
         notes=row.get("notes"),
+        server_id=row.get("server_id"),
+        batch_id=row.get("batch_id"),
         created_at=row.get("created_at"),
         updated_at=row.get("updated_at"),
         profile=profile,
     )
 
 
+def _uuid_or_none(value: Any) -> str | None:
+    return str(value) if value is not None else None
+
+
 class SupabaseAccountRepository(IAccountRepository):
-    def __init__(self, client: Client) -> None:
+    def __init__(self, client: Client, assignments: IAssignmentRepository) -> None:
         self._client = client
+        self._assignments = assignments
 
     def list(
         self,
@@ -57,6 +64,10 @@ class SupabaseAccountRepository(IAccountRepository):
         status: str | None = None,
         platform: str | None = None,
         search: str | None = None,
+        server_id: UUID | None = None,
+        batch_id: UUID | None = None,
+        assigned_to: UUID | None = None,
+        unassigned: bool = False,
         skip: int = 0,
         limit: int = 50,
         order_by: str = "created_at",
@@ -69,9 +80,28 @@ class SupabaseAccountRepository(IAccountRepository):
             query = query.eq("platform", platform)
         if search:
             query = query.ilike("email", f"%{search}%")
+        if server_id:
+            query = query.eq("server_id", str(server_id))
+        if batch_id:
+            query = query.eq("batch_id", str(batch_id))
+        if assigned_to:
+            query = query.eq("assignments.user_id", str(assigned_to))
+        if unassigned:
+            assigned_ids = self._assignments.list_assigned_account_ids()
+            if assigned_ids:
+                query = query.not_.in_("id", [str(i) for i in assigned_ids])
         query = query.order(order_by, desc=descending).range(skip, skip + limit - 1)
         res = query.execute()
         return [_row_to_entity(r) for r in res.data]
+
+    def list_ids_by_batch(self, batch_id: UUID) -> list[UUID]:
+        res = (
+            self._client.table(ACCOUNTS)
+            .select("id")
+            .eq("batch_id", str(batch_id))
+            .execute()
+        )
+        return [UUID(r["id"]) for r in res.data]
 
     def get(self, account_id: UUID) -> AccountEntity | None:
         res = (
@@ -101,6 +131,8 @@ class SupabaseAccountRepository(IAccountRepository):
             "recovery_email": account.recovery_email,
             "status": account.status.value,
             "notes": account.notes,
+            "server_id": _uuid_or_none(account.server_id),
+            "batch_id": _uuid_or_none(account.batch_id),
         }
         res = self._client.table(ACCOUNTS).insert(account_row).execute()
         new_id = res.data[0]["id"]
@@ -147,9 +179,11 @@ class SupabaseAccountRepository(IAccountRepository):
         assert updated is not None
         return updated
 
-    def bulk_create(self, accounts: list[tuple[AccountEntity, ProfileEntity]]) -> int:
+    def bulk_create(
+        self, accounts: list[tuple[AccountEntity, ProfileEntity]]
+    ) -> list[UUID]:
         if not accounts:
-            return 0
+            return []
 
         account_rows = [
             {
@@ -159,12 +193,14 @@ class SupabaseAccountRepository(IAccountRepository):
                 "recovery_email": a.recovery_email,
                 "status": a.status.value,
                 "notes": a.notes,
+                "server_id": _uuid_or_none(a.server_id),
+                "batch_id": _uuid_or_none(a.batch_id),
             }
             for a, _ in accounts
         ]
         res = self._client.table(ACCOUNTS).insert(account_rows).execute()
 
-        # Mapear email -> id para asociar los perfiles correctamente.
+        # Mapear email -> id para asociar los perfiles y devolver los IDs en orden.
         id_by_email = {row["email"]: row["id"] for row in res.data}
         profile_rows = [
             self._profile_row(id_by_email[a.email.lower()], p)
@@ -173,7 +209,11 @@ class SupabaseAccountRepository(IAccountRepository):
         ]
         if profile_rows:
             self._client.table(PROFILES).insert(profile_rows).execute()
-        return len(res.data)
+        return [
+            UUID(id_by_email[a.email.lower()])
+            for a, _ in accounts
+            if a.email.lower() in id_by_email
+        ]
 
     def delete(self, account_id: UUID) -> None:
         # profiles se borra en cascada por la FK (ON DELETE CASCADE).

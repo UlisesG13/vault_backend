@@ -16,6 +16,8 @@ class AccountCreate(BaseModel):
     recovery_email: EmailStr | None = None
     status: AccountStatus = AccountStatus.active
     notes: str | None = None
+    server_id: UUID | None = None
+    batch_id: UUID | None = None
     # Datos de perfil (1-1)
     full_name: str | None = None
     phone: str | None = None
@@ -31,6 +33,8 @@ class AccountUpdate(BaseModel):
     recovery_email: EmailStr | None = None
     status: AccountStatus | None = None
     notes: str | None = None
+    server_id: UUID | None = None
+    batch_id: UUID | None = None
     full_name: str | None = None
     phone: str | None = None
     birth_date: date | None = None
@@ -71,6 +75,8 @@ class AccountResponse(BaseModel):
     recovery_email: EmailStr | None = None
     status: AccountStatus
     notes: str | None = None
+    server_id: UUID | None = None
+    batch_id: UUID | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None
     profile: ProfileResponse | None = None
@@ -90,6 +96,8 @@ class AccountResponse(BaseModel):
             recovery_email=account.recovery_email,
             status=account.status,
             notes=account.notes,
+            server_id=account.server_id,
+            batch_id=account.batch_id,
             created_at=account.created_at,
             updated_at=account.updated_at,
             profile=profile,

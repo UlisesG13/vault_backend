@@ -27,6 +27,8 @@ class AccountEntity(BaseModel):
     recovery_email: EmailStr | None = None
     status: AccountStatus = AccountStatus.active
     notes: str | None = None
+    server_id: UUID | None = None
+    batch_id: UUID | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None
     profile: ProfileEntity | None = None

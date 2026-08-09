@@ -11,10 +11,20 @@ from .domain.exceptions import (
     AuthorizationError,
     DomainError,
     DuplicateEmailError,
+    DuplicateError,
     InvalidCredentialsError,
     NotFoundError,
+    ValidationError,
 )
-from .api.routers import accounts_router, admin_router, auth_router
+from .api.routers import (
+    accounts_router,
+    admin_router,
+    assignments_router,
+    auth_router,
+    batches_router,
+    expenses_router,
+    servers_router,
+)
 
 logging.basicConfig(
     level=logging.INFO,
@@ -42,6 +52,10 @@ app.add_middleware(
 app.include_router(auth_router.router)
 app.include_router(accounts_router.router)
 app.include_router(admin_router.router)
+app.include_router(servers_router.router)
+app.include_router(batches_router.router)
+app.include_router(expenses_router.router)
+app.include_router(assignments_router.router)
 
 
 # ---------- Manejo global de errores de dominio ----------
@@ -49,6 +63,8 @@ app.include_router(admin_router.router)
 _STATUS_MAP: dict[type[DomainError], int] = {
     NotFoundError: 404,
     DuplicateEmailError: 409,
+    DuplicateError: 409,
+    ValidationError: 422,
     InvalidCredentialsError: 401,
     AuthenticationError: 401,
     AuthorizationError: 403,

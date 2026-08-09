@@ -147,7 +147,8 @@ class BulkCreateAccountsUseCase:
             account.encrypted_password = self._encryption.encrypt(plain_password)
             to_insert.append((account, profile))
 
-        inserted = self._accounts.bulk_create(to_insert) if to_insert else 0
+        created_ids = self._accounts.bulk_create(to_insert) if to_insert else []
+        inserted = len(created_ids)
         self._audit.log(
             action="created",
             system_user_id=actor_id,

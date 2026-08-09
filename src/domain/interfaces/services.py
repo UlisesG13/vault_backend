@@ -27,3 +27,12 @@ class IAuthService(ABC):
 
     @abstractmethod
     def decode_token(self, token: str) -> dict[str, Any]: ...
+
+
+class IFileParser(ABC):
+    """Convierte un archivo CSV o Excel (.xlsx) en filas de diccionarios."""
+
+    @abstractmethod
+    def parse(self, content: bytes, filename: str) -> list[dict[str, str]]:
+        """Devuelve las filas del archivo con encabezados normalizados (minúscula/trim)."""
+        ...

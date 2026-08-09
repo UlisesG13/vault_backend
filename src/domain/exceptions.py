@@ -16,6 +16,14 @@ class DuplicateEmailError(DomainError):
     """Ya existe una cuenta con ese correo."""
 
 
+class DuplicateError(DomainError):
+    """Ya existe un recurso con un valor único que colisiona (p. ej. nombre de servidor)."""
+
+
+class ValidationError(DomainError):
+    """Datos de entrada inválidos que no puede reparar el usuario (p. ej. filas de un import)."""
+
+
 class InvalidCredentialsError(DomainError):
     """Email o contraseña incorrectos en el login."""
 

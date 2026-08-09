@@ -82,3 +82,70 @@ revoke all privileges on public.managed_accounts from anon, authenticated;
 revoke all privileges on public.profiles         from anon, authenticated;
 revoke all privileges on public.audit_logs       from anon, authenticated;
 revoke all privileges on sequence public.audit_logs_id_seq from anon, authenticated;
+
+-- =====================================================================
+-- AUTOMATIZACIÓN: servidores, lotes, gastos y asignaciones
+-- (migración del flujo del Excel: "servidor 3", "correos 6 de agosto",
+--  "gastos polllitos", "cuentas de compañeros").
+-- =====================================================================
+
+-- Servidores / dispositivos de origen de las cuentas
+create table if not exists servers (
+    id          uuid primary key default gen_random_uuid(),
+    name        text not null unique,          -- "Servidor 1", "Dispositivo 3"
+    description text,
+    created_at  timestamptz not null default now()
+);
+
+-- Lotes de cuentas compradas/creadas en una fecha ("correos 6 de agosto")
+create table if not exists account_batches (
+    id            uuid primary key default gen_random_uuid(),
+    name          text not null,
+    purchase_date date,
+    notes         text,
+    created_at    timestamptz not null default now()
+);
+
+-- Gastos ("gastos polllitos"), asociados a un lote
+create table if not exists expenses (
+    id               uuid primary key default gen_random_uuid(),
+    batch_id         uuid references account_batches (id) on delete set null,
+    amount           numeric(12, 2) not null check (amount >= 0),
+    expense_date     date not null default current_date,
+    account_quantity integer not null default 0 check (account_quantity >= 0),
+    description      text,
+    created_at       timestamptz not null default now()
+);
+
+-- Asignaciones cuenta -> usuario (pivote con historial)
+create table if not exists assignments (
+    id          uuid primary key default gen_random_uuid(),
+    account_id  uuid not null references managed_accounts (id) on delete cascade,
+    user_id     uuid not null references system_users (id)     on delete cascade,
+    assigned_by uuid references system_users (id) on delete set null,
+    assigned_at timestamptz not null default now(),
+    unique (account_id, user_id)   -- evita duplicar la misma asignación
+);
+
+-- FK directas de cuenta a servidor y lote
+alter table managed_accounts
+    add column if not exists server_id uuid references servers (id)         on delete set null,
+    add column if not exists batch_id  uuid references account_batches (id) on delete set null;
+
+-- Índices de las nuevas relaciones
+create index if not exists idx_managed_accounts_server_id on managed_accounts (server_id);
+create index if not exists idx_managed_accounts_batch_id  on managed_accounts (batch_id);
+create index if not exists idx_expenses_batch_id          on expenses (batch_id);
+create index if not exists idx_assignments_account_id     on assignments (account_id);
+create index if not exists idx_assignments_user_id        on assignments (user_id);
+
+-- Mismo blindaje: RLS activo sin policies + revocación total a roles públicos
+alter table public.servers         enable row level security;
+alter table public.account_batches enable row level security;
+alter table public.expenses        enable row level security;
+alter table public.assignments     enable row level security;
+
+revoke all privileges on public.servers         from anon, authenticated;
+revoke all privileges on public.account_batches from anon, authenticated;
+revoke all privileges on public.expenses        from anon, authenticated;
+revoke all privileges on public.assignments     from anon, authenticated;

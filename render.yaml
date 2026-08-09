@@ -1,0 +1,31 @@
+# Blueprint de despliegue para Render (https://render.com).
+# Crea un Web Service con HTTPS automático. Las claves sensibles se cargan
+# desde el dashboard (sync: false) para NO versionarlas.
+services:
+  - type: web
+    name: vault-backend
+    runtime: python
+    plan: free
+    region: oregon
+    branch: main
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn src.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.12.7"
+      - key: JWT_ALGORITHM
+        value: HS256
+      - key: ACCESS_TOKEN_EXPIRE_MINUTES
+        value: "60"
+      # --- Se configuran en el dashboard de Render (Environment) ---
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_KEY        # service_role key
+        sync: false
+      - key: FERNET_KEY
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: CORS_ORIGINS        # ej: https://tu-app.vercel.app
+        sync: false
