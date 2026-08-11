@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, File, Form, Query, UploadFile, status as
 
 from ...domain.entities.account import AccountEntity, ProfileEntity
 from ...domain.entities.enums import AccountStatus, Platform, UserRole
+from ...domain.exceptions import ValidationError
 from ...domain.usecases.accounts import (
     BulkCreateAccountsUseCase,
     CreateAccountUseCase,
@@ -186,17 +187,25 @@ async def import_accounts(
     server_id: Annotated[UUID, Form()],
     batch_id: Annotated[UUID, Form()],
     file: Annotated[UploadFile, File()],
-    operator_id: Annotated[UUID | None, Form()] = None,
+    # str (no UUID) para tolerar el campo vacío que envía el formulario sin operador.
+    operator_id: Annotated[str | None, Form()] = None,
 ) -> ImportResult:
     """Importación inteligente (SOLO admin): crea cuentas desde un CSV/Excel
     asociando servidor, lote y (opcional) operador en un solo paso."""
+    parsed_operator_id: UUID | None = None
+    if operator_id and operator_id.strip():
+        try:
+            parsed_operator_id = UUID(operator_id.strip())
+        except ValueError:
+            raise ValidationError(f"operator_id inválido: {operator_id}")
+
     content = await file.read()
     result = usecase.execute(
         content=content,
         filename=file.filename or "",
         server_id=server_id,
         batch_id=batch_id,
-        operator_id=operator_id,
+        operator_id=parsed_operator_id,
         actor_id=current_user.id,
     )
     return ImportResult(**result)

@@ -85,7 +85,14 @@ class SupabaseAccountRepository(IAccountRepository):
         if batch_id:
             query = query.eq("batch_id", str(batch_id))
         if assigned_to:
-            query = query.eq("assignments.user_id", str(assigned_to))
+            # `assignments` no está embebida en el select; resolvemos los ids del
+            # usuario con el repo de asignaciones y filtramos por id.
+            assigned_to_ids = [
+                a.account_id for a in self._assignments.list_by_user(assigned_to)
+            ]
+            if not assigned_to_ids:
+                return []
+            query = query.in_("id", [str(i) for i in assigned_to_ids])
         if unassigned:
             assigned_ids = self._assignments.list_assigned_account_ids()
             if assigned_ids:
