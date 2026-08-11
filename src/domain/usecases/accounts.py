@@ -5,7 +5,11 @@ from uuid import UUID
 from ..entities.account import AccountEntity, ProfileEntity
 from ..entities.enums import AccountStatus
 from ..exceptions import DuplicateEmailError, NotFoundError
-from ..interfaces.repositories import IAccountRepository, IAuditRepository
+from ..interfaces.repositories import (
+    IAccountRepository,
+    IAuditRepository,
+    IServerRepository,
+)
 from ..interfaces.services import IEncryptionService
 
 
@@ -168,3 +172,57 @@ class DeleteAccountUseCase:
         # Auditar ANTES de borrar para conservar el account_id en el log.
         self._audit.log(action="deleted", account_id=account_id, system_user_id=actor_id)
         self._accounts.delete(account_id)
+
+
+class ReassignAccountsUseCase:
+    """Mueve un conjunto de cuentas a otro servidor en una sola operación."""
+
+    def __init__(
+        self,
+        accounts: IAccountRepository,
+        servers: IServerRepository,
+        audit: IAuditRepository,
+    ) -> None:
+        self._accounts = accounts
+        self._servers = servers
+        self._audit = audit
+
+    def execute(
+        self, account_ids: list[UUID], to_server_id: UUID, actor_id: UUID | None
+    ) -> dict[str, Any]:
+        # Regla 1: el servidor destino debe existir.
+        if self._servers.get(to_server_id) is None:
+            raise NotFoundError(f"No existe el servidor {to_server_id}")
+
+        # Regla 3: deduplicar ids en silencio (preservando orden).
+        unique_ids = list(dict.fromkeys(account_ids))
+
+        # Regla 2: validar en bloque que todas las cuentas existen (sin cambios parciales).
+        existing = self._accounts.list_by_ids(unique_ids)
+        existing_ids = {account.id for account in existing}
+        missing = len(unique_ids) - len(existing_ids)
+        if missing > 0:
+            raise NotFoundError(f"{missing} cuentas no existen")
+
+        # Regla 4: las que ya están en el servidor destino no se tocan.
+        to_move = [
+            account.id
+            for account in existing
+            if account.server_id != to_server_id
+        ]
+        already_in_server = len(existing) - len(to_move)
+
+        # Regla 5: mover el resto en una sola UPDATE.
+        reassigned = self._accounts.bulk_update_server(to_move, to_server_id)
+
+        # Regla 6: una sola entrada de auditoría.
+        self._audit.log(
+            action="reassigned",
+            system_user_id=actor_id,
+            details={
+                "to_server_id": str(to_server_id),
+                "reassigned": reassigned,
+                "already_in_server": already_in_server,
+            },
+        )
+        return {"reassigned": reassigned, "already_in_server": already_in_server}

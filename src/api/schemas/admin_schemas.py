@@ -46,6 +46,13 @@ class PlatformDistribution(BaseModel):
     twitter: int
 
 
+class ServerUsage(BaseModel):
+    id: UUID
+    name: str
+    description: str | None = None
+    count: int
+
+
 class StatsResponse(BaseModel):
     total: int
     active: int
@@ -54,3 +61,4 @@ class StatsResponse(BaseModel):
     created_today: int
     platform_distribution: PlatformDistribution
     trend_last_7_days: list[TrendPoint]
+    servers: list[ServerUsage]

@@ -12,6 +12,7 @@ from ...domain.usecases.accounts import (
     DeleteAccountUseCase,
     GetAccountsUseCase,
     GetAccountUseCase,
+    ReassignAccountsUseCase,
     UpdateAccountUseCase,
     UpdateStatusUseCase,
 )
@@ -26,6 +27,7 @@ from ..dependencies import (
     get_delete_account_usecase,
     get_import_accounts_usecase,
     get_list_accounts_usecase,
+    get_reassign_accounts_usecase,
     get_update_account_usecase,
     get_update_status_usecase,
 )
@@ -35,6 +37,8 @@ from ..schemas.account_schemas import (
     AccountUpdate,
     BulkAccountsRequest,
     BulkResult,
+    ReassignRequest,
+    ReassignResult,
     StatusUpdate,
 )
 from ..schemas.assignment_schemas import ImportResult
@@ -196,6 +200,17 @@ async def import_accounts(
         actor_id=current_user.id,
     )
     return ImportResult(**result)
+
+
+@router.post("/reassign", response_model=ReassignResult)
+def reassign_accounts(
+    body: ReassignRequest,
+    current_user: AdminUserDep,
+    usecase: Annotated[ReassignAccountsUseCase, Depends(get_reassign_accounts_usecase)],
+) -> ReassignResult:
+    """Reasignación masiva (SOLO admin): mueve cuentas a otro servidor en un solo paso."""
+    result = usecase.execute(body.account_ids, body.to_server_id, actor_id=current_user.id)
+    return ReassignResult(**result)
 
 
 @router.delete("/{account_id}", status_code=http_status.HTTP_204_NO_CONTENT)

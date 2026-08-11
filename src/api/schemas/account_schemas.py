@@ -2,7 +2,7 @@
 from datetime import date, datetime
 from uuid import UUID
 
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, Field
 
 from ...domain.entities.account import AccountEntity
 from ...domain.entities.enums import AccountStatus, Platform
@@ -48,6 +48,16 @@ class StatusUpdate(BaseModel):
 
 class BulkAccountsRequest(BaseModel):
     accounts: list[AccountCreate]
+
+
+class ReassignRequest(BaseModel):
+    account_ids: list[UUID] = Field(..., min_length=1, max_length=500)
+    to_server_id: UUID
+
+
+class ReassignResult(BaseModel):
+    reassigned: int
+    already_in_server: int
 
 
 class BulkResult(BaseModel):

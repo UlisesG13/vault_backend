@@ -103,6 +103,28 @@ class SupabaseAccountRepository(IAccountRepository):
         )
         return [UUID(r["id"]) for r in res.data]
 
+    def list_by_ids(self, account_ids: list[UUID]) -> list[AccountEntity]:
+        if not account_ids:
+            return []
+        res = (
+            self._client.table(ACCOUNTS)
+            .select(_SELECT)
+            .in_("id", [str(i) for i in account_ids])
+            .execute()
+        )
+        return [_row_to_entity(r) for r in res.data]
+
+    def bulk_update_server(self, account_ids: list[UUID], server_id: UUID) -> int:
+        if not account_ids:
+            return 0
+        res = (
+            self._client.table(ACCOUNTS)
+            .update({"server_id": str(server_id)})
+            .in_("id", [str(i) for i in account_ids])
+            .execute()
+        )
+        return len(res.data)
+
     def get(self, account_id: UUID) -> AccountEntity | None:
         res = (
             self._client.table(ACCOUNTS)

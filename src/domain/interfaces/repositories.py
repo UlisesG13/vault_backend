@@ -53,6 +53,16 @@ class IAccountRepository(ABC):
     def list_ids_by_batch(self, batch_id: UUID) -> list[UUID]: ...
 
     @abstractmethod
+    def list_by_ids(self, account_ids: list[UUID]) -> list[AccountEntity]:
+        """Devuelve las cuentas existentes cuyo id está en la lista (sin orden garantizado)."""
+        ...
+
+    @abstractmethod
+    def bulk_update_server(self, account_ids: list[UUID], server_id: UUID) -> int:
+        """Asigna account_ids a server_id en una sola UPDATE. Devuelve las filas afectadas."""
+        ...
+
+    @abstractmethod
     def get(self, account_id: UUID) -> AccountEntity | None: ...
 
     @abstractmethod

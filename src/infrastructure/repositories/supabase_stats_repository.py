@@ -9,6 +9,7 @@ from ...domain.interfaces.repositories import IStatsRepository
 
 ACCOUNTS = "managed_accounts"
 AUDIT = "audit_logs"
+SERVERS = "servers"
 _PLATFORMS = ("gmail", "facebook", "twitter")
 _TREND_DAYS = 7
 
@@ -75,4 +76,31 @@ class SupabaseStatsRepository(IStatsRepository):
             "created_today": created_today,
             "platform_distribution": {p: self._count(platform=p) for p in _PLATFORMS},
             "trend_last_7_days": trend,
+            "servers": self._server_usage(),
         }
+
+    def _server_usage(self) -> list[dict[str, Any]]:
+        """Conteo de cuentas por servidor, incluyendo servidores con 0 cuentas."""
+        servers = (
+            self._client.table(SERVERS)
+            .select("id, name, description")
+            .order("name")
+            .execute()
+            .data
+        )
+        server_ids = (
+            self._client.table(ACCOUNTS).select("server_id").execute().data
+        )
+        # Mismo patrón que la tendencia: agrupar/contar en Python con Counter.
+        counts = Counter(
+            row["server_id"] for row in server_ids if row.get("server_id")
+        )
+        return [
+            {
+                "id": s["id"],
+                "name": s["name"],
+                "description": s.get("description"),
+                "count": counts.get(s["id"], 0),
+            }
+            for s in servers
+        ]

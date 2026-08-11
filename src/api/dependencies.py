@@ -26,6 +26,7 @@ from ..domain.usecases.accounts import (
     DeleteAccountUseCase,
     GetAccountsUseCase,
     GetAccountUseCase,
+    ReassignAccountsUseCase,
     UpdateAccountUseCase,
     UpdateStatusUseCase,
 )
@@ -245,6 +246,12 @@ def get_delete_account_usecase(
     accounts: AccountRepoDep, audit: AuditRepoDep
 ) -> DeleteAccountUseCase:
     return DeleteAccountUseCase(accounts, audit)
+
+
+def get_reassign_accounts_usecase(
+    accounts: AccountRepoDep, servers: ServerRepoDep, audit: AuditRepoDep
+) -> ReassignAccountsUseCase:
+    return ReassignAccountsUseCase(accounts, servers, audit)
 
 
 # ---------- Casos de uso de admin ----------
